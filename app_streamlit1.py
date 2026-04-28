@@ -160,6 +160,19 @@ def detect_intent(text):
 # ─────────────────────────────────────────
 
 
+def format_place(p, is_lkr):
+    price = p[2] * USD_TO_LKR if is_lkr else p[2]
+    currency = "Rs." if is_lkr else "$"
+
+    return f"""<div style="border:1px solid #444;padding:15px;border-radius:10px;margin-bottom:15px;background-color:#1e1e1e;">
+🌍 <b style="font-size:18px;">{p[0]} ({p[1]})</b>
+<hr style="border:0.5px solid #555;">
+💰 Price: {currency} {price:,}<br>
+🏷️ Type: {p[3]}<br>
+📝 {p[4]}
+</div>"""
+
+
 def rule_based_response(intent):
     responses = {
         "greeting": "Hello! I'm your Travel Assistant 🌍. Ask me about places!",
@@ -469,58 +482,57 @@ if prompt:
         is_lkr = any(word in prompt.lower() for word in ["rs", "rupee", "lkr"])
 
         # CHEAP
-        if "cheap" in prompt.lower():
+        if "cheap" in preprocess(prompt):
+            st.session_state.last_intent = "cheap"
             places = get_destinations(1500)
             response = "Here are budget travel options:<br><br>"
 
             for p in places:
-                price = p[2] * USD_TO_LKR if is_lkr else p[2]
-                currency = "Rs." if is_lkr else "$"
-
-                response += f"""<div style="border:1px solid #444;padding:15px;border-radius:10px;margin-bottom:15px;background-color:#1e1e1e;">
-🌍 <b style="font-size:18px;">{p[0]} ({p[1]})</b>
-<hr style="border:0.5px solid #555;">
-💰 Price: {currency} {price:,}<br>
-🏷️ Type: {p[3]}<br>
-📝 {p[4]}
-</div>"""
+                response += format_place(p, is_lkr)
 
         # LUXURY
-        elif "luxury" in prompt.lower():
+        elif "luxury" in preprocess(prompt):
+            st.session_state.last_intent = "luxury"
             places = get_destinations()
             response = "Here are luxury travel options:<br><br>"
 
             for p in places:
                 if p[2] >= 2500:
-                    price = p[2] * USD_TO_LKR if is_lkr else p[2]
-                    currency = "Rs." if is_lkr else "$"
-
-                    response += f"""<div style="border:1px solid #444;padding:15px;border-radius:10px;margin-bottom:15px;background-color:#1e1e1e;">
-🌍 <b style="font-size:18px;">{p[0]} ({p[1]})</b>
-<hr style="border:0.5px solid #555;">
-💰 Price: {currency} {price:,}<br>
-🏷️ Type: {p[3]}<br>
-📝 {p[4]}
-</div>"""
+                    response += format_place(p, is_lkr)
 
         # ALL
-        elif "all" in prompt.lower():
+        elif "all" in preprocess(prompt):
+            st.session_state.last_intent = "all"
             places = get_destinations()
             response = "Here are all available travel plans:<br><br>"
 
             for p in places:
-                price = p[2] * USD_TO_LKR if is_lkr else p[2]
-                currency = "Rs." if is_lkr else "$"
-
-                response += f"""<div style="border:1px solid #444;padding:15px;border-radius:10px;margin-bottom:15px;background-color:#1e1e1e;">
-🌍 <b style="font-size:18px;">{p[0]} ({p[1]})</b>
-<hr style="border:0.5px solid #555;">
-💰 Price: {currency} {price:,}<br>
-🏷️ Type: {p[3]}<br>
-📝 {p[4]}
-</div>"""
+                response += format_place(p, is_lkr)
 
         elif is_lkr:
+
+            last = st.session_state.get("last_intent")
+
+            if last == "cheap":
+                places = get_destinations(1500)
+                response = "Here are budget travel options (LKR):<br><br>"
+
+            elif last == "luxury":
+                places = [p for p in get_destinations() if p[2] >= 2500]
+                response = "Here are luxury travel options (LKR):<br><br>"
+
+            elif last == "all":
+                places = get_destinations()
+                response = "Here are all travel plans (LKR):<br><br>"
+
+            else:
+                response = "I can convert travel prices to LKR. Try asking about cheap, luxury, or all travel first."
+
+            if last:
+                for p in places:
+                    response += format_place(p, is_lkr)
+
+        elif is_lkr and "price" in prompt.lower():
             min_price = 500 * USD_TO_LKR
             max_price = 3000 * USD_TO_LKR
             response = f"Travel packages range from Rs. {min_price:,} to Rs. {max_price:,}"
